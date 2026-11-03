@@ -5,6 +5,7 @@ Uso:
   python3 testar.py [arquivo.py] --sinteticas     matrizes de dados_sinteticos/
   python3 testar.py --comparar a.py b.py          duas versões lado a lado
   (--sinteticas também vale com --comparar)
+  python3 testar.py --tudo [a.py b.py ...]       público, sintéticas (por tipo) e misturado
 
 Cada execução grava os resultados em resultados.csv (versão, conjunto, matriz,
 NRMSE, tempo, data), substituindo as linhas antigas da mesma versão e conjunto.
@@ -72,7 +73,52 @@ def gravar_csv(arquivo, conjunto, linhas):
                         "nrmse": f"{nrmse:.4f}", "tempo": f"{dt:.3f}", "data": data})
 
 
+def tipos_sinteticas():
+    # Lê dados_sinteticos/tipos.txt: "01 rank1_ruido0.05 52x15 ..." -> {1: "rank baixo", ...}
+    tipos = {}
+    with open("dados_sinteticos/tipos.txt") as f:
+        for linha in f:
+            i, tipo = linha.split()[:2]
+            tipos[int(i)] = "rank baixo" if tipo.startswith("rank") else tipo.replace("_", " ")
+    return tipos
+
+
+def resumo(arquivo):
+    # Resultado separado: banco público, sintéticas (total e por tipo) e misturado.
+    pub = rodar(arquivo, "dados")
+    sin = rodar(arquivo, "dados_sinteticos")
+    gravar_csv(arquivo, "publico", pub)
+    gravar_csv(arquivo, "sinteticas", sin)
+    tipos = tipos_sinteticas()
+    por_tipo = {}
+    for i, _, nrmse, _ in sin:
+        por_tipo.setdefault(tipos[i], []).append(nrmse)
+    todos = [x[2] for x in pub + sin]
+    tempo_max = max(x[3] for x in pub + sin)
+    return pub, sin, por_tipo, todos, tempo_max
+
+
 args = sys.argv[1:]
+if args and args[0] == "--tudo":
+    if not os.path.isdir("dados_sinteticos"):
+        sys.exit("dados_sinteticos/ não existe. Rode antes: python3 gerar_sinteticas.py")
+    arquivos = args[1:] or ["solucao.py"]
+    resumos = [resumo(a) for a in arquivos]
+    nomes = [os.path.splitext(os.path.basename(a))[0] for a in arquivos]
+    largura = max(12, *(len(n) for n in nomes))
+    print(f"{'conjunto':<28}" + "".join(f"{n:>{largura + 2}}" for n in nomes))
+    linhas = [("Lote inicial (público)", lambda r: (np.mean([x[2] for x in r[0]]), len(r[0])))]
+    linhas.append(("Sintéticas", lambda r: (np.mean([x[2] for x in r[1]]), len(r[1]))))
+    for tipo in sorted(resumos[0][2]):
+        linhas.append((f"  {tipo}", lambda r, t=tipo: (np.mean(r[2][t]), len(r[2][t]))))
+    linhas.append(("Misturado (todas)", lambda r: (np.mean(r[3]), len(r[3]))))
+    for rotulo, f in linhas:
+        valores = [f(r) for r in resumos]
+        rotulo_n = f"{rotulo} (n={valores[0][1]})"
+        print(f"{rotulo_n:<28}" + "".join(f"{v[0]:>{largura + 2}.4f}" for v in valores))
+    print(f"{'Tempo máximo por matriz':<28}" + "".join(f"{r[4]:>{largura + 1}.2f}s" for r in resumos))
+    sys.exit(0)
+
 sinteticas = "--sinteticas" in args
 args = [a for a in args if a != "--sinteticas"]
 pasta, conjunto = ("dados_sinteticos", "sinteticas") if sinteticas else ("dados", "publico")

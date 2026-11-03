@@ -6,11 +6,12 @@
 
 | | Antes | Depois |
 |---|:---:|:---:|
-| NRMSE médio, banco público | | |
+| NRMSE médio, lote inicial (público) | | |
 | NRMSE médio, sintéticas | | |
+| NRMSE médio, misturado | | |
 | Tempo máximo por matriz | | |
 
-Comparação por matriz: cole a saída de `python3 testar.py --comparar versoes/anterior.py versoes/nova.py`.
+Tabela completa: cole a saída de `python3 testar.py --tudo versoes/anterior.py versoes/nova.py`. Comparação por matriz: cole a saída de `python3 testar.py --comparar versoes/anterior.py versoes/nova.py`.
 
 ## Checklist
 

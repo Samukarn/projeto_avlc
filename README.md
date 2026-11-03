@@ -20,7 +20,7 @@ O primeiro mostra o NRMSE da solução atual no banco público (hoje 0,275). O s
 |---|---|
 | `solucao.py` | A função `principal(observada, mascara)`. É o arquivo que vai no zip de entrega |
 | `versoes/` | Cada versão salva separadamente (v1, v2, ...) |
-| `testar.py` | NRMSE e tempo por matriz. `--sinteticas` usa as sintéticas; `--comparar a.py b.py` compara duas versões. Grava `resultados.csv` |
+| `testar.py` | NRMSE e tempo por matriz. `--sinteticas` usa as sintéticas; `--comparar a.py b.py` compara duas versões; `--tudo a.py b.py` mostra público, sintéticas por tipo e misturado. Grava `resultados.csv` |
 | `gerar_sinteticas.py` | Gera ~50 matrizes de teste (rank baixo, ruído, colunas constantes) |
 | `checar_regras.py` | Confere imports, `class`, `seed`, funções fora de `principal`, casos extremos e tempo |
 | `resultados.csv` | Histórico de resultados por versão e matriz |
