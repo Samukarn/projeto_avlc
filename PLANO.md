@@ -1,0 +1,70 @@
+# Plano do Projeto
+
+Torneio de Álgebra Linear — CIN0138. Este documento registra o objetivo, as regras de trabalho e as decisões da equipe.
+
+## Objetivo e métrica
+
+Objetivo: 1º lugar no torneio.
+
+Métrica: NRMSE médio nas células ocultas, medido pelo `testar.py` no banco público. Também conferimos nas matrizes sintéticas (`testar.py --sinteticas`), porque a nota oficial sai de um lote privado.
+
+## Regra de aceitação de uma versão
+
+Uma versão nova só substitui o `solucao.py` se cumprir as três condições:
+
+1. O NRMSE médio cai em relação à versão anterior.
+2. Nenhuma matriz com estrutura (NRMSE da versão anterior < 0,5) piora mais de 0,05.
+3. A versão passa no `checar_regras.py`.
+
+Para comparar duas versões: `python3 testar.py --comparar versoes/a.py versoes/b.py`.
+
+## Estratégia escolhida
+
+Gerar vários candidatos e deixar a validação cruzada escolher, matriz por matriz. Os candidatos são o modelo de médias (com encolhimento α), o Hard-Impute com vários k e o Soft-Impute com vários λ.
+
+Por quê: as matrizes do torneio são variadas. Algumas têm rank baixo exato, onde o Hard-Impute vence, e outras são só ruído, onde vence quem fica perto da média. Nenhum método único ganha em todas. Os vencedores do Netflix Prize chegaram lá combinando um baseline de médias, fatoração de matriz com regularização e a mistura de vários modelos. Mazumder, Hastie e Tibshirani (2010) mostraram que o Soft-Impute erra menos que o Hard-Impute quando há ruído ou quando o rank não é conhecido. A validação cruzada é o que permite escolher sem olhar o gabarito.
+
+## O que decidimos NÃO fazer
+
+- Otimizar para matrizes específicas do banco público (por exemplo, "se for 8×8, faça X"). O lote privado é outro.
+- Usar redes neurais.
+- Usar bibliotecas proibidas.
+
+## Arquitetura
+
+Ver [ARQUITETURA.md](ARQUITETURA.md). Resumo: uma ideia nova vira só "mais um candidato" dentro do `solucao.py`.
+
+## Roteiro
+
+| Versão | Ideia | Situação |
+|---|---|---|
+| v1 | Média da coluna | Feita: 0,906 |
+| v2 | Hard-Impute com k escolhido por um grupo de validação | Feita: 0,297 |
+| v3 | Ponto de partida pelo resíduo da linha | Feita: 0,275 (mas dependia de sorte no sorteio) |
+| v4 | Validação cruzada com vários folds, mediana, regra do mais simples | Feita: 0,275, estável entre 0,274 e 0,278 |
+| v5 | Candidatos Soft-Impute (matriz centrada por coluna, λ = σ₁ × [0,5; 0,3; 0,2; 0,12; 0,07; 0,04; 0,02], warm start) e modelo de médias com α ∈ {0; 0,5; 1}. Resolver matrizes acima de 80×80 | Próxima |
+| v6 | Blending ponderado por 1/erro, só entre candidatos com erro de validação até ~10% acima do melhor | Depois da v5 |
+
+Datas:
+- 10/11 e 12/11: aulas de acompanhamento. Levar as perguntas em aberto.
+- 18/11: congelamento. Depois disso, só correções.
+- 20/11, 23:59: entrega do `Grupo[N].zip`, com 1 dia de folga.
+- 29/11: classificados. 03/12: apresentação.
+
+## Papéis
+
+| Papel | Responsável | O que faz |
+|---|---|---|
+| Algoritmo | | Escreve as versões novas |
+| Validação | | Matrizes sintéticas, Docker, `checar_regras.py` |
+| Documentação | | Relatório, apresentação, diário |
+
+Todos precisam entender o algoritmo inteiro. Na Etapa 2, os monitores fazem perguntas a cada membro sobre autoria e domínio do código.
+
+## Perguntas em aberto
+
+| Pergunta | Responsável | Resposta |
+|---|---|---|
+| O NRMSE final é a média dos NRMSE por matriz ou um RMSE agregado de todas? | | |
+| O desvio padrão é o dos valores ocultos ou o da matriz inteira? | | |
+| Existe tamanho máximo para as matrizes do lote privado? | | |
