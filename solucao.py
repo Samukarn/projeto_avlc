@@ -2,7 +2,7 @@ import numpy as np
 
 
 def principal(observada, mascara):
-    # Versão 4 (reorganizada em etapas; ver ARQUITETURA.md):
+    # Versão 4 (reorganizada em etapas; ver md/ARQUITETURA.md):
     # preparar -> modelo_medias -> candidatos -> validacao_cruzada -> escolher -> protecoes
 
     # ---------------------------------------------------------------- 1. preparar

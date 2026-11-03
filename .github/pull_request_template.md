@@ -20,7 +20,7 @@ Tabela completa: cole a saída de `python3 testar.py --tudo versoes/anterior.py 
 - [ ] Nenhuma matriz com estrutura (NRMSE anterior < 0,5) piorou mais de 0,05
 - [ ] `python3 checar_regras.py solucao.py` deu "Tudo OK"
 - [ ] Versão salva em `versoes/vN_nome.py`
-- [ ] `EVOLUCAO.md` atualizado (ideia, resultado, aprendizado)
+- [ ] `md/EVOLUCAO.md` atualizado (ideia, resultado, aprendizado)
 - [ ] Ideias que não funcionaram registradas em `experimentos/`
 
 ## Revisão

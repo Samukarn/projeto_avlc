@@ -107,7 +107,7 @@ def gerar_resultados_md():
         por_versao.setdefault(r["versao"], {}).setdefault(r["conjunto"], []).append(float(r["nrmse"]))
     versoes = sorted(v for v, c in por_versao.items()
                      if v.startswith("v") and "publico" in c and "sinteticas" in c)
-    with open("RESULTADOS.md", "w") as f:
+    with open("md/RESULTADOS.md", "w") as f:
         f.write("# Resultados por versão\n\n")
         f.write("NRMSE médio (menor é melhor). Gerado por `python3 testar.py --tudo`; não edite à mão.\n\n")
         f.write("| Versão | Dados (públicos) | Dados sintéticos | Os dois juntos |\n")
@@ -139,7 +139,7 @@ if args and args[0] == "--tudo":
         print(f"{rotulo_n:<28}" + "".join(f"{v[0]:>{largura + 2}.4f}" for v in valores))
     print(f"{'Tempo máximo por matriz':<28}" + "".join(f"{r[4]:>{largura + 1}.2f}s" for r in resumos))
     gerar_resultados_md()
-    print("\nRESULTADOS.md atualizado.")
+    print("\nmd/RESULTADOS.md atualizado.")
     sys.exit(0)
 
 sinteticas = "--sinteticas" in args
