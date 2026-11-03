@@ -219,7 +219,7 @@ Por matriz do público, as que mudaram: 01 (1,292 → 1,209), 04 (0,038 → 0,03
 
 O público ficou abaixo da "trapaça" da v5 (0,2696, o melhor resultado possível com os métodos antigos escolhendo pelo gabarito). Isso só foi possível com métodos de outro tipo, vindos da pesquisa.
 
-Teste de cada método novo (tirando um por vez):
+Teste de cada método novo (tirando um por vez; medido antes das travas de tempo, por isso o misturado difere em 0,001):
 
 | Sem... | Público | Misturado | O que mostra |
 |---|:---:|:---:|---|
