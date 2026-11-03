@@ -1,7 +1,7 @@
 # Nossa Evolução
 
 Torneio de Álgebra Linear — CIN0138.
-Diário do que tentamos, do que funcionou e do que aprendemos.
+Diário do que tentamos, do que funcionou e do que aprendemos. O plano e as regras de trabalho estão no [PLANO.md](PLANO.md).
 
 ---
 
@@ -44,7 +44,7 @@ Resultado por matriz:
 | 09 | 0,859 | 0,000 | 0,000 | 0,001 |
 | 10 | 0,730 | 0,011 | 0,010 | 0,010 |
 
-Também testamos em 60 matrizes sintéticas (`testar_sintetico.py`), que nenhuma versão "viu": v3 = 0,395 e v4 = 0,398.
+Também testamos em 60 matrizes sintéticas, que nenhuma versão "viu": v3 = 0,395 e v4 = 0,398. (Esse teste agora é o `testar.py --sinteticas`, com outro gerador, então os números novos não são comparáveis com estes.)
 
 ---
 
