@@ -29,6 +29,7 @@ A nota é o NRMSE (erro normalizado). Quanto menor, melhor:
 | v3 | v2 com ponto de partida corrigido | 0,275 | `versoes/v3_partida_residuo.py` |
 | v4 | Validação cruzada robusta | 0,275 | `versoes/v4_validacao_cruzada.py` |
 | v5 | Vários candidatos + combinação | 0,272 | `versoes/v5_candidatos.py` |
+| v6 | James-Stein + PCA regularizada (da pesquisa) | 0,254 | `versoes/v6_pesquisa.py` |
 
 Resultado por matriz:
 
@@ -190,6 +191,46 @@ O que aprendemos:
 - A combinação só é segura com as duas travas (até 10% do melhor e erro menor nos folds). Sem elas, já tínhamos visto que estragava as matrizes 9 e 10.
 
 Próximos passos: rodar no avaliador Docker; ajustar a grade de λ e α; avaliar se vale mais folds em matrizes pequenas.
+
+---
+
+## v6 — Métodos da pesquisa: James-Stein e PCA regularizada
+
+Ideia: a pesquisa (md/PESQUISA.md) testou 6 métodos da literatura. Dois foram fortes justamente onde a v5 era mais fraca, e entraram como candidatos:
+
+1. James-Stein (1961): encolhe as médias das colunas e os desvios das linhas em direção à média geral, com o fator calculado por fórmula, B = max(0, 1 − (c − 3)·v / Σ(x̄ⱼ − m̄)²). É provado que isso reduz o erro total quando há 3 ou mais colunas. Ataca as matrizes de ruído.
+2. PCA iterativa regularizada (Josse e Husson): como o Hard-Impute, mas cada valor singular encolhe em σ²/σₖ, com σ² estimado pelos valores singulares que sobram. Ataca as matrizes com estrutura e ruído.
+
+Proteções novas de tempo: PCA regularizada só até 1200 células; menos iterações do Soft-Impute acima de 5000 células; 1 fold acima de 20 mil conhecidos; acima de 90 mil células, Soft-Impute direto. Assim, até 500×500 roda em menos de 1,2 s.
+
+Resultado (NRMSE médio):
+
+| Conjunto | v5 | v6 |
+|---|:---:|:---:|
+| Lote inicial (público, 10) | 0,272 | 0,254 |
+| Sintéticas (50) | 0,403 | 0,393 |
+| – colunas constantes (8) | 0,056 | 0,056 |
+| – rank baixo (32) | 0,298 | 0,285 |
+| – ruído puro (10) | 1,020 | 1,006 |
+| Misturado (60) | 0,382 | 0,370 |
+| Tempo máximo | 0,60 s | 0,61 s |
+
+Por matriz do público, as que mudaram: 01 (1,292 → 1,209), 04 (0,038 → 0,033), 05 (0,113 → 0,060), 07 (0,089 → 0,084), 08 (1,028 → 0,994). Nenhuma piorou mais de 0,002. Estabilidade entre sorteios de folds: de 0,254 a 0,270.
+
+O público ficou abaixo da "trapaça" da v5 (0,2696, o melhor resultado possível com os métodos antigos escolhendo pelo gabarito). Isso só foi possível com métodos de outro tipo, vindos da pesquisa.
+
+Teste de cada método novo (tirando um por vez):
+
+| Sem... | Público | Misturado | O que mostra |
+|---|:---:|:---:|---|
+| (v6 completa) | 0,254 | 0,369 | |
+| James-Stein | 0,266 | 0,373 | Ele é o responsável pelo ganho no ruído puro (1,020 sem ele) |
+| PCA regularizada | 0,261 | 0,377 | Ela é a responsável pelo ganho no rank baixo (0,298 sem ela) |
+
+O que aprendemos:
+- Pesquisar a literatura rendeu mais que ajustar parâmetros: os dois métodos novos têm fundamento teórico e ganharam onde eram previstos.
+- A matriz 8 chegou a 0,994, abaixo de 1. Isso equivale a acertar melhor que a média dos ocultos, o que só é possível porque o encolhimento usa a média geral, que tem menos ruído que a média de cada coluna.
+- Cada método novo precisa de uma trava de tempo: a PCA regularizada sozinha levava uma 300×300 a 2,4 s.
 
 ---
 

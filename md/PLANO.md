@@ -43,7 +43,8 @@ Ver [ARQUITETURA.md](ARQUITETURA.md). Resumo: uma ideia nova vira só "mais um c
 | v3 | Ponto de partida pelo resíduo da linha | Feita: 0,275 (mas dependia de sorte no sorteio) |
 | v4 | Validação cruzada com vários folds, mediana, regra do mais simples | Feita: 0,275, estável entre 0,274 e 0,278 |
 | v5 | Candidatos Soft-Impute e médias com α ∈ {0; 0,5; 1}, combinação ponderada por 1/erro (o que era a v6). ALS testado e retirado | Feita: 0,272 público, 0,382 misturado |
-| v6 | Ajuste fino: grade de λ e α, número de folds, conferência no Docker | Próxima |
+| v6 | James-Stein e PCA regularizada (vindos da pesquisa em md/PESQUISA.md), travas de tempo para matrizes grandes | Feita: 0,254 público, 0,370 misturado |
+| v7 | Conferência no Docker, ajuste fino, candidatos de simetria/vizinhança | Próxima |
 
 Datas:
 - 10/11 e 12/11: aulas de acompanhamento. Levar as perguntas em aberto.

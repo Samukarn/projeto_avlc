@@ -9,7 +9,8 @@ Tudo fica dentro de `principal(observada, mascara)`, como a regra exige. O códi
           |
   2. modelo_medias       média da coluna + desvio da linha (ponto de partida e rede de segurança)
           |
-  3. candidatos          candidatos_fixos (médias α=0/0,5/1, Soft-Impute com 7 λ)  +  passo_rank (Hard-Impute quente/frio de rank k)
+  3. candidatos          candidatos_fixos (James-Stein, médias α=0/0,5/1, Soft-Impute com 7 λ)
+          |              + passo_rank (Hard-Impute quente/frio e PCA regularizada de rank k)
           |
   4. validacao_cruzada   10 folds de 10% dos conhecidos (avalia 5); erro de cada candidato em cada fold
           |              parada no rank (6 sem melhora) e orçamento de tempo
