@@ -27,21 +27,24 @@ A nota é o NRMSE (erro normalizado). Quanto menor, melhor:
 | v1 | Média da coluna | 0,906 | `versoes/v1_media_coluna.py` |
 | v2 | SVD iterativo com k automático | 0,297 | `versoes/v2_svd_iterativo.py` |
 | v3 | v2 com ponto de partida corrigido | 0,275 | `versoes/v3_partida_residuo.py` |
+| v4 | Validação cruzada robusta | 0,275 | `versoes/v4_validacao_cruzada.py` |
 
 Resultado por matriz:
 
-| Matriz | v1 | v2 | v3 |
-|:---:|:---:|:---:|:---:|
-| 01 | 1,368 | 1,258 | 1,261 |
-| 02 | 1,163 | 0,049 | 0,049 |
-| 03 | 0,074 | 0,307 | 0,078 |
-| 04 | 0,873 | 0,038 | 0,038 |
-| 05 | 0,900 | 0,139 | 0,134 |
-| 06 | 1,054 | 0,042 | 0,042 |
-| 07 | 1,027 | 0,089 | 0,089 |
-| 08 | 1,015 | 1,036 | 1,052 |
-| 09 | 0,859 | 0,000 | 0,000 |
-| 10 | 0,730 | 0,011 | 0,010 |
+| Matriz | v1 | v2 | v3 | v4 |
+|:---:|:---:|:---:|:---:|:---:|
+| 01 | 1,368 | 1,258 | 1,261 | 1,296 |
+| 02 | 1,163 | 0,049 | 0,049 | 0,035 |
+| 03 | 0,074 | 0,307 | 0,078 | 0,076 |
+| 04 | 0,873 | 0,038 | 0,038 | 0,038 |
+| 05 | 0,900 | 0,139 | 0,134 | 0,113 |
+| 06 | 1,054 | 0,042 | 0,042 | 0,042 |
+| 07 | 1,027 | 0,089 | 0,089 | 0,089 |
+| 08 | 1,015 | 1,036 | 1,052 | 1,052 |
+| 09 | 0,859 | 0,000 | 0,000 | 0,001 |
+| 10 | 0,730 | 0,011 | 0,010 | 0,010 |
+
+Também testamos em 60 matrizes sintéticas (`testar_sintetico.py`), que nenhuma versão "viu": v3 = 0,395 e v4 = 0,398.
 
 ---
 
@@ -98,6 +101,41 @@ O que aprendemos:
 - O ponto de partida importa: o SVD iterativo pode ficar preso perto de um chute ruim.
 - Uma média só é confiável quando os valores conhecidos estão espalhados de forma equilibrada.
 - Uma mudança precisa ser testada em todas as matrizes. Uma correção que ajuda uma pode piorar outra.
+
+---
+
+## v4 — Validação cruzada robusta
+
+Problema: até a v3, o k era escolhido com um único grupo de 10% dos valores conhecidos. Trocando só qual grupo é escondido, a v3 variava de 0,275 a 0,365 no banco público (a matriz 8 chegava a 1,956). O 0,275 era sorte.
+
+Ideia: técnicas clássicas de validação cruzada, usadas desde a escolha de componentes em PCA (Wold, 1978) até o Netflix Prize:
+1. Vários folds: dividimos os conhecidos em 10 grupos (por uma permutação fixa, sem seed) e avaliamos 5. Cada candidato é testado em todos.
+2. Mediana em vez de média dos folds: um fold ruim não decide sozinho.
+3. Preferir o modelo mais simples: entre os candidatos a até 5% do melhor, fica o de menor k (ideia da "regra de um erro padrão" de Breiman).
+4. Dois modos de Hard-Impute como candidatos: "quente" (k parte da solução de k-1) e "frio" (parte das médias). A validação escolhe.
+5. Limite de 100 iterações: parar cedo funciona como regularização.
+6. Faixa plausível: previsões limitadas a [mín − 0,5·faixa, máx + 0,5·faixa] dos valores conhecidos.
+7. Parada no rank após 6 ranks sem melhora, e orçamento de tempo estimado pelo custo das SVDs.
+
+Testes que deram errado no caminho (e por quê):
+
+| Tentativa | Resultado | Motivo |
+|---|---|---|
+| 5 folds de 20% | Público 0,339 | Sem 20% dos dados, as matrizes 5 e 10 ficam com quase o mínimo de valores para o rank verdadeiro, e a validação passa a preferir k pequeno |
+| Média dos folds | Sintético 0,476 | Sem regularização, o Hard-Impute "explode" quando uma coluna fica com poucos valores, e um fold explodido domina a média |
+| Parar após 3 ranks sem melhora | Sintético 0,454 | Em algumas matrizes o erro só cai quando k chega exatamente no rank verdadeiro |
+| Só modo quente | Sintético 0,423 | Bom no público, pior nas sintéticas: nenhum modo ganha sempre |
+
+Resultado: 0,275 no público, com qualquer sorteio de folds dando entre 0,274 e 0,278. Os casos extremos (linha ou coluna vazia, matriz 1×n, tudo visível) passam. Matrizes até 200×200 rodam em menos de 1,2 s.
+
+O que aprendemos:
+- Uma média boa pode ser sorte. É preciso medir a variação, não só o resultado.
+- O teste com matrizes sintéticas pegou erros que o banco público não mostrava.
+- Validação cruzada em matriz pequena é delicada: esconder dados demais muda o problema.
+
+Limitação conhecida: em matrizes acima de ~80×80, o orçamento de tempo acaba antes de chegar ao rank verdadeiro. O banco público vai até 28×31, mas vale resolver na v5.
+
+Próximos passos (v5): Soft-Impute como candidato (regularização de verdade, deve ajudar nas matrizes 1 e 8 e evitar as "explosões") e modelo de médias com encolhimento α ∈ {0; 0,5; 1}.
 
 ---
 
