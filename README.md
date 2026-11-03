@@ -23,6 +23,7 @@ O primeiro mostra o NRMSE da solução atual no banco público (hoje 0,275). O s
 | `testar.py` | NRMSE e tempo por matriz. `--sinteticas` usa as sintéticas; `--comparar a.py b.py` compara duas versões; `--tudo a.py b.py` mostra público, sintéticas por tipo e misturado. Grava `resultados.csv` |
 | `gerar_sinteticas.py` | Gera ~50 matrizes de teste (rank baixo, ruído, colunas constantes) |
 | `checar_regras.py` | Confere imports, `class`, `seed`, funções fora de `principal`, casos extremos e tempo |
+| `RESULTADOS.md` | Resumo: NRMSE médio por versão nos dados públicos, sintéticos e nos dois juntos |
 | `resultados.csv` | Histórico de resultados por versão e matriz |
 | `dados/` | Banco público: observada, mascara e gabarito |
 | `PLANO.md` | Objetivo, regra de aceitação, estratégia, roteiro, papéis |

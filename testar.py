@@ -98,6 +98,27 @@ def resumo(arquivo):
     return pub, sin, por_tipo, todos, tempo_max
 
 
+def gerar_resultados_md():
+    # Resume resultados.csv em RESULTADOS.md: NRMSE médio por versão em cada conjunto.
+    with open(CSV, newline="") as f:
+        linhas = list(csv.DictReader(f))
+    por_versao = {}
+    for r in linhas:
+        por_versao.setdefault(r["versao"], {}).setdefault(r["conjunto"], []).append(float(r["nrmse"]))
+    versoes = sorted(v for v, c in por_versao.items()
+                     if v.startswith("v") and "publico" in c and "sinteticas" in c)
+    with open("RESULTADOS.md", "w") as f:
+        f.write("# Resultados por versão\n\n")
+        f.write("NRMSE médio (menor é melhor). Gerado por `python3 testar.py --tudo`; não edite à mão.\n\n")
+        f.write("| Versão | Dados (públicos) | Dados sintéticos | Os dois juntos |\n")
+        f.write("|---|:---:|:---:|:---:|\n")
+        for v in versoes:
+            pub, sin = por_versao[v]["publico"], por_versao[v]["sinteticas"]
+            f.write(f"| {v} | {np.mean(pub):.3f} | {np.mean(sin):.3f} | {np.mean(pub + sin):.3f} |\n")
+        f.write(f"\nDados: {len(pub)} matrizes do banco público. Sintéticos: {len(sin)} matrizes de "
+                "`gerar_sinteticas.py`. Os dois juntos: média de todas as matrizes.\n")
+
+
 args = sys.argv[1:]
 if args and args[0] == "--tudo":
     if not os.path.isdir("dados_sinteticos"):
@@ -117,6 +138,8 @@ if args and args[0] == "--tudo":
         rotulo_n = f"{rotulo} (n={valores[0][1]})"
         print(f"{rotulo_n:<28}" + "".join(f"{v[0]:>{largura + 2}.4f}" for v in valores))
     print(f"{'Tempo máximo por matriz':<28}" + "".join(f"{r[4]:>{largura + 1}.2f}s" for r in resumos))
+    gerar_resultados_md()
+    print("\nRESULTADOS.md atualizado.")
     sys.exit(0)
 
 sinteticas = "--sinteticas" in args
