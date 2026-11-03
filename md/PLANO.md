@@ -42,8 +42,8 @@ Ver [ARQUITETURA.md](ARQUITETURA.md). Resumo: uma ideia nova vira só "mais um c
 | v2 | Hard-Impute com k escolhido por um grupo de validação | Feita: 0,297 |
 | v3 | Ponto de partida pelo resíduo da linha | Feita: 0,275 (mas dependia de sorte no sorteio) |
 | v4 | Validação cruzada com vários folds, mediana, regra do mais simples | Feita: 0,275, estável entre 0,274 e 0,278 |
-| v5 | Candidatos Soft-Impute (matriz centrada por coluna, λ = σ₁ × [0,5; 0,3; 0,2; 0,12; 0,07; 0,04; 0,02], warm start) e modelo de médias com α ∈ {0; 0,5; 1}. Resolver matrizes acima de 80×80 | Próxima |
-| v6 | Blending ponderado por 1/erro, só entre candidatos com erro de validação até ~10% acima do melhor | Depois da v5 |
+| v5 | Candidatos Soft-Impute e médias com α ∈ {0; 0,5; 1}, combinação ponderada por 1/erro (o que era a v6). ALS testado e retirado | Feita: 0,272 público, 0,382 misturado |
+| v6 | Ajuste fino: grade de λ e α, número de folds, conferência no Docker | Próxima |
 
 Datas:
 - 10/11 e 12/11: aulas de acompanhamento. Levar as perguntas em aberto.

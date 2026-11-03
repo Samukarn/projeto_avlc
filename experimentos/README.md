@@ -26,4 +26,11 @@ Formato: ideia, resultado, por que não entrou.
 | Limitar k pelos graus de liberdade, k(n+m−k) | Sintético 0,407 | Não ajudou: os ranks acima do limite quase não eram escolhidos |
 | 30 iterações em vez de 100 | Público 0,301 | Rápido, mas pior no público |
 
+## Durante a v5
+
+| Ideia | Resultado (misturado) | Por que não entrou |
+|---|:---:|---|
+| ALS regularizado (rank 1, 2, 4, 8; λ ∈ {1; 10}) como candidato | 0,3815, igual sem ele | Não acrescentou nada e deixou o público pior (0,2746 contra 0,2731) e mais lento. O Soft-Impute já é uma fatoração regularizada |
+| Combinação tratando Hard quente e frio como famílias diferentes | 0,3815 | Misturava duas versões do mesmo método. Contar como uma família só deu 0,2724 no público contra 0,2746 |
+
 Os números "sintético" da v4 vieram de um gerador anterior (60 matrizes, até 31×31). O gerador atual é o `gerar_sinteticas.py`.

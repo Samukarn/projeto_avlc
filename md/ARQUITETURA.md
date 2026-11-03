@@ -9,12 +9,13 @@ Tudo fica dentro de `principal(observada, mascara)`, como a regra exige. O códi
           |
   2. modelo_medias       média da coluna + desvio da linha (ponto de partida e rede de segurança)
           |
-  3. candidatos          candidatos_fixos (médias, ...)  +  passo_rank (Hard-Impute quente/frio de rank k)
+  3. candidatos          candidatos_fixos (médias α=0/0,5/1, Soft-Impute com 7 λ)  +  passo_rank (Hard-Impute quente/frio de rank k)
           |
   4. validacao_cruzada   10 folds de 10% dos conhecidos (avalia 5); erro de cada candidato em cada fold
           |              parada no rank (6 sem melhora) e orçamento de tempo
-  5. escolher            mediana dos folds; entre os que ficam a 5% do melhor, o mais simples
-          |              reconstruir: roda o escolhido de novo com todos os dados
+  5. escolher_ou_combinar  mediana dos folds; entre os que ficam a 5% do melhor, o mais simples;
+          |              combina até 3 famílias empatadas (10%) se a mistura errar menos;
+          |              reconstruir: roda o(s) escolhido(s) de novo com todos os dados
   6. protecoes           try/except -> modelo de médias; NaN/Inf -> modelo de médias;
           |              visíveis devolvidos exatamente como vieram
       matriz completa

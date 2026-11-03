@@ -28,6 +28,7 @@ A nota é o NRMSE (erro normalizado). Quanto menor, melhor:
 | v2 | SVD iterativo com k automático | 0,297 | `versoes/v2_svd_iterativo.py` |
 | v3 | v2 com ponto de partida corrigido | 0,275 | `versoes/v3_partida_residuo.py` |
 | v4 | Validação cruzada robusta | 0,275 | `versoes/v4_validacao_cruzada.py` |
+| v5 | Vários candidatos + combinação | 0,272 | `versoes/v5_candidatos.py` |
 
 Resultado por matriz:
 
@@ -136,6 +137,59 @@ O que aprendemos:
 Limitação conhecida: em matrizes acima de ~80×80, o orçamento de tempo acaba antes de chegar ao rank verdadeiro. O banco público vai até 28×31, mas vale resolver na v5.
 
 Próximos passos (v5): Soft-Impute como candidato (regularização de verdade, deve ajudar nas matrizes 1 e 8 e evitar as "explosões") e modelo de médias com encolhimento α ∈ {0; 0,5; 1}.
+
+---
+
+## v5 — Vários candidatos e combinação
+
+Ideia: juntar tudo o que faltava do roteiro e do enunciado (que vai de "médias simples" a "fatoração matricial") como candidatos, e deixar a validação cruzada da v4 decidir em cada matriz:
+
+1. Modelo de médias com encolhimento: x = média da coluna + α · desvio da linha, com α ∈ {0; 0,5; 1}. Com α < 1 confiamos menos na linha.
+2. Soft-Impute (Mazumder, Hastie e Tibshirani, 2010): em vez de cortar os valores singulares, subtrai λ de todos, σ → max(σ − λ, 0). Matriz centrada pelas médias das colunas, λ = σ₁ × {0,5; 0,3; 0,2; 0,12; 0,07; 0,04; 0,02}, cada λ partindo da solução do anterior.
+3. ALS regularizado (fatoração estilo Netflix Prize): resíduo ≈ A·Bᵀ ajustado só nos conhecidos, com penalidade λ(|A|² + |B|²). Testado e retirado (ver abaixo).
+4. Hard-Impute da v4 (quente e frio).
+5. Combinação (blending): média ponderada por 1/erro dos até 3 melhores candidatos de famílias diferentes (médias, soft, hard), só se todos estiverem a até 10% do melhor e se a combinação errar menos nos folds. Para isso a validação agora guarda as previsões de cada candidato, e o erro de qualquer mistura sai sem rodar nada de novo.
+
+Resultado (NRMSE médio):
+
+| Conjunto | v4 | v5 |
+|---|:---:|:---:|
+| Lote inicial (público, 10) | 0,275 | 0,272 |
+| Sintéticas (50) | 0,425 | 0,403 |
+| – colunas constantes (8) | 0,057 | 0,056 |
+| – rank baixo (32) | 0,319 | 0,298 |
+| – ruído puro (10) | 1,059 | 1,020 |
+| Misturado (60) | 0,400 | 0,382 |
+| Tempo máximo | 0,61 s | 0,74 s |
+
+No público, só melhoraram as matrizes 1 (1,296 → 1,292) e 8 (1,052 → 1,028); as outras ficaram iguais. A estabilidade entre sorteios de folds ficou entre 0,272 e 0,280. Matrizes grandes, que eram a limitação da v4, passaram a funcionar: 100×100 foi de 0,845 para 0,149, e 200×200 roda em 1,06 s.
+
+Teste de cada família (tirando uma por vez, misturado):
+
+| Sem... | Misturado | O que mostra |
+|---|:---:|---|
+| (v5 completa com ALS) | 0,3815 | |
+| Soft-Impute | 0,3909 | É a família que mais ajuda |
+| Médias com α | 0,3853 | Ajuda no ruído puro (1,045 sem elas) |
+| Combinação | 0,3845 | Ajuda |
+| ALS | 0,3815 | Não muda nada, e sem ele o público melhora (0,2731) e fica mais rápido. Retirado |
+
+Onde cada método vence (o que a validação escolheu):
+
+| Tipo de matriz | Quem ganha | Por quê |
+|---|---|---|
+| Ruído puro (públicas 1 e 8) | Médias (7 de 10), às vezes combinação de médias com soft | Não há estrutura. Qualquer SVD tenta achar padrão no ruído e erra mais |
+| Rank baixo exato, sem ruído (públicas 9 e 10) | Hard-Impute | Quando o rank verdadeiro existe, cortar no k certo recupera a matriz quase perfeita. Encolher (soft) ou misturar só atrapalharia |
+| Rank baixo com ruído | Soft-Impute e combinações | O ruído espalha energia por todos os valores singulares. Encolher remove o ruído sem perder a estrutura |
+| Colunas quase constantes (pública 3) | Médias ou combinação | A média da coluna já é quase a resposta |
+| Matrizes grandes (> 80×80) | Soft-Impute | É o único que chega a uma boa solução dentro do orçamento de tempo |
+
+O que aprendemos:
+- Nenhum método ganha sempre. O ganho da v5 vem de deixar a validação escolher, matriz por matriz.
+- Mais candidatos nem sempre ajudam: o ALS não acrescentou nada, porque o Soft-Impute já é uma fatoração regularizada (Hastie et al., 2014, mostram que as duas resolvem o mesmo problema).
+- A combinação só é segura com as duas travas (até 10% do melhor e erro menor nos folds). Sem elas, já tínhamos visto que estragava as matrizes 9 e 10.
+
+Próximos passos: rodar no avaliador Docker; ajustar a grade de λ e α; avaliar se vale mais folds em matrizes pequenas.
 
 ---
 

@@ -2,8 +2,10 @@ import numpy as np
 
 
 def principal(observada, mascara):
-    # Versão 4 (reorganizada em etapas; ver md/ARQUITETURA.md):
-    # preparar -> modelo_medias -> candidatos -> validacao_cruzada -> escolher -> protecoes
+    # Versão 5: vários candidatos (médias com α, Soft-Impute, Hard-Impute) escolhidos
+    # ou combinados por validação cruzada.
+    # Etapas (ver ARQUITETURA.md):
+    # preparar -> modelo_medias -> candidatos -> validacao_cruzada -> escolher_ou_combinar -> protecoes
 
     # ---------------------------------------------------------------- 1. preparar
     obs = np.array(observada, dtype=float)
@@ -11,34 +13,34 @@ def principal(observada, mascara):
     n_lin, n_col = obs.shape
 
     # ---------------------------------------------------------------- 2. modelo_medias
-    def modelo_medias(m):
-        # Média da coluna + desvio médio da linha em relação a essas médias.
-        # É o ponto de partida dos outros candidatos e a rede de segurança final.
+    def medias(m):
+        # Média de cada coluna e desvio médio de cada linha em relação a essas médias.
         geral = obs[m].mean() if m.any() else 0.0
         med_col = np.array([obs[m[:, j], j].mean() if m[:, j].any() else geral for j in range(n_col)])
         resid = obs - med_col[None, :]
         desvio_lin = np.array([resid[i, m[i]].mean() if m[i].any() else 0.0 for i in range(n_lin)])
-        chute = med_col[None, :] + desvio_lin[:, None]
-        return np.where(m, obs, chute)
+        return med_col, desvio_lin
+
+    def modelo_medias(m, alfa=1.0):
+        # x = média da coluna + α · desvio da linha. α < 1 confia menos na linha
+        # (encolhimento): ajuda quando a linha tem poucos valores ou a matriz é ruído.
+        med_col, desvio_lin = medias(m)
+        return np.where(m, obs, med_col[None, :] + alfa * desvio_lin[:, None])
 
     def algoritmo():
         if msk.sum() < 10 or min(n_lin, n_col) < 2:
             return modelo_medias(msk)
 
         # ------------------------------------------------------------ 3. candidatos
-        # Faixa plausível: sem regularização, o Hard-Impute pode "explodir" numa coluna
-        # com poucos valores conhecidos. Limitar as previsões evita que isso domine tudo.
         faixa = obs[msk].max() - obs[msk].min()
         piso, teto = obs[msk].min() - 0.5 * faixa, obs[msk].max() + 0.5 * faixa
 
-        # Custo aproximado de uma SVD em microssegundos (medido: 13 us em 10x10, 790 us
-        # em 100x100). Serve para parar a busca antes de chegar perto do limite de 2 s.
+        # Custo aproximado de uma SVD em microssegundos, para o orçamento de tempo.
         custo_svd = 15 + 0.001 * n_lin * n_col * min(n_lin, n_col)
         svds = [0]
 
         def hard_impute(m, k, inicio, iteracoes=100):
-            # Repete: SVD truncada no rank k, depois recoloca os valores conhecidos.
-            # Poucas iterações funcionam como regularização (parada antecipada).
+            # SVD truncada no rank k e recoloca os conhecidos, até estabilizar.
             x = inicio
             for _ in range(iteracoes):
                 svds[0] += 1
@@ -51,18 +53,45 @@ def principal(observada, mascara):
                     break
             return x
 
-        # O modo "frio" recomeça das médias a cada k e é o mais caro. Em matrizes
-        # grandes (mais de 1200 células) há dados de sobra e só o "quente" cabe no tempo.
+        def soft_impute(m, fracoes):
+            # Soft-Impute (Mazumder, Hastie e Tibshirani, 2010): em vez de cortar os
+            # valores singulares, subtrai λ de todos (σ -> max(σ - λ, 0)). O ruído some e a
+            # estrutura encolhe um pouco. Trabalha com a matriz centrada pelas médias da
+            # coluna e percorre λ do maior para o menor, cada um partindo do anterior.
+            med_col, _ = medias(m)
+            centro = np.where(m, obs - med_col[None, :], 0.0)
+            sigma1 = np.linalg.svd(centro, compute_uv=False)[0]
+            z = np.zeros_like(obs)
+            saida = []
+            for fr in fracoes:
+                lam = fr * sigma1
+                for _ in range(60):
+                    svds[0] += 1
+                    preenchida = np.where(m, obs - med_col[None, :], z)
+                    u, s, vt = np.linalg.svd(preenchida, full_matrices=False)
+                    novo = (u * np.maximum(s - lam, 0.0)) @ vt
+                    mudanca = np.linalg.norm(novo - z)
+                    z = novo
+                    if mudanca < 1e-4 * (np.linalg.norm(z) + 1e-12):
+                        break
+                saida.append(np.where(m, obs, np.clip(z + med_col[None, :], piso, teto)))
+            return saida
+
         modos = ("quente", "frio") if n_lin * n_col <= 1200 else ("quente",)
+        fracoes_soft = (0.5, 0.3, 0.2, 0.12, 0.07, 0.04, 0.02)
 
         def candidatos_fixos(m, inicio):
-            # Candidatos que não dependem do rank. Uma ideia nova entra aqui como mais
-            # um par (nome, solução). Ordem: do mais simples ao mais complexo.
-            return [(("media", 0), inicio)]
+            # Candidatos que não dependem do k do Hard-Impute, do mais simples ao mais
+            # complexo: médias (α = 0; 0,5; 1) e Soft-Impute (λ do maior ao menor).
+            saida = [(("media", 0.0), modelo_medias(m, 0.0)),
+                     (("media", 0.5), modelo_medias(m, 0.5)),
+                     (("media", 1.0), inicio)]
+            for fr, sol in zip(fracoes_soft, soft_impute(m, fracoes_soft)):
+                saida.append((("soft", fr), sol))
+            return saida
 
         def passo_rank(m, k, inicio, estado):
-            # Candidatos de rank k. 'quente' parte da solução de k-1 (guardada em
-            # estado); 'frio' parte das médias.
+            # Hard-Impute de rank k: 'quente' parte da solução de k-1; 'frio' das médias.
             saida = []
             for modo in modos:
                 if modo == "quente":
@@ -73,23 +102,23 @@ def principal(observada, mascara):
             return saida
 
         def reconstruir(nome, m):
-            # Roda o candidato escolhido de novo, agora com todos os valores conhecidos.
-            modo, k = nome
+            # Roda o candidato escolhido de novo, com todos os valores conhecidos.
+            if nome[0] == "media":
+                return modelo_medias(m, nome[1])
+            if nome[0] == "soft":
+                return soft_impute(m, fracoes_soft[:fracoes_soft.index(nome[1]) + 1])[-1]
             inicio = modelo_medias(m)
-            if modo == "frio":
-                return hard_impute(m, k, inicio)
+            if nome[0] == "frio":
+                return hard_impute(m, nome[1], inicio)
             x = inicio
-            for r in range(1, k + 1):
+            for r in range(1, nome[1] + 1):
                 x = hard_impute(m, r, x)
             return x
 
         # ------------------------------------------------------------ 4. validacao_cruzada
-        # Folds: permutação fixa dos conhecidos (sem seed), 10 grupos; avaliamos 5.
-        # Cada fold esconde só 10%: escondendo mais, o que sobra pode não bastar para o
-        # rank verdadeiro e a validação passa a preferir k pequeno demais.
+        # 10 folds de 10% dos conhecidos (permutação fixa, sem seed); avaliamos 5.
         conhecidos = np.flatnonzero(msk)
         ordem = conhecidos[np.argsort((conhecidos * 2654435761) % 1000003)]
-        # Em matrizes grandes há muitos valores por fold e 2 folds já bastam.
         n_folds, usar = 10, (5 if conhecidos.size <= 1500 else 2)
         folds = []
         for f in range(usar):
@@ -101,49 +130,61 @@ def principal(observada, mascara):
             folds.append({"treino": treino, "validacao": validacao,
                           "reais": obs.ravel()[validacao], "inicio": inicio, "estado": [inicio]})
 
-        def erro(sol, fold):
-            return np.mean((sol.ravel()[fold["validacao"]] - fold["reais"]) ** 2)
+        # Guardamos as previsões de cada candidato nos valores escondidos de cada fold.
+        # Assim dá para medir o erro de qualquer combinação de candidatos sem rodar de novo.
+        nomes, previsoes = [], []
 
         def avaliar(listas_por_fold):
-            # Recebe, para cada fold, a lista [(nome, solução), ...] e devolve
-            # os nomes e a matriz de erros (candidato x fold).
-            nomes = [nome for nome, _ in listas_por_fold[0]]
-            tabela = [[erro(listas_por_fold[f][c][1], folds[f]) for f in range(usar)]
-                      for c in range(len(nomes))]
-            return nomes, tabela
+            for c in range(len(listas_por_fold[0])):
+                nomes.append(listas_por_fold[0][c][0])
+                previsoes.append([listas_por_fold[f][c][1].ravel()[folds[f]["validacao"]]
+                                  for f in range(usar)])
 
-        nomes, erros = avaliar([candidatos_fixos(fd["treino"], fd["inicio"]) for fd in folds])
-        melhor, sem_melhora = np.median(erros[0]), 0
+        def erros_de(prev):
+            return [np.mean((prev[f] - folds[f]["reais"]) ** 2) for f in range(usar)]
+
+        avaliar([candidatos_fixos(fd["treino"], fd["inicio"]) for fd in folds])
+        melhor, sem_melhora = min(np.median(erros_de(p)) for p in previsoes), 0
         for k in range(1, min(n_lin, n_col)):
-            novos, linhas = avaliar([passo_rank(fd["treino"], k, fd["inicio"], fd["estado"]) for fd in folds])
-            nomes += novos
-            erros += linhas
-            # Parada no rank: se 6 ranks seguidos não melhoram, ranks maiores
-            # dificilmente vão ajudar. (Com 3, perdíamos matrizes em que o erro só cai
-            # quando k chega no rank verdadeiro.)
-            atual = min(np.median(erros[-1]), np.median(erros[-2]))
+            avaliar([passo_rank(fd["treino"], k, fd["inicio"], fd["estado"]) for fd in folds])
+            # Parada no rank (6 sem melhora) e orçamento de tempo.
+            atual = min(np.median(erros_de(previsoes[-1])), np.median(erros_de(previsoes[-2])))
             if atual < melhor:
                 melhor, sem_melhora = atual, 0
             else:
                 sem_melhora += 1
                 if sem_melhora >= 6:
                     break
-            # Orçamento de tempo: estimativa do custo das SVDs já feitas.
             if svds[0] * custo_svd > 300000:
                 break
 
-        # ------------------------------------------------------------ 5. escolher
-        # Mediana dos folds: um fold que "explodiu" não decide sozinho.
-        # Entre os candidatos a até 5% do melhor, fica o mais simples (o primeiro).
-        mediana = np.median(np.array(erros), axis=1)
-        escolhido = nomes[int(np.flatnonzero(mediana <= mediana.min() * 1.05)[0])]
-        if escolhido[0] == "media":
-            return modelo_medias(msk)
-        return reconstruir(escolhido, msk)
+        # ------------------------------------------------------------ 5. escolher_ou_combinar
+        # Mediana dos folds; entre os candidatos a até 5% do melhor, o mais simples.
+        mediana = np.array([np.median(erros_de(p)) for p in previsoes])
+        escolhido = int(np.flatnonzero(mediana <= mediana.min() * 1.05)[0])
+
+        # Combinação (blending): média dos 3 melhores candidatos de famílias diferentes
+        # (médias, soft, hard; quente e frio contam como hard),
+        # com peso 1/erro, só se todos estiverem até 10% do melhor e se a combinação
+        # errar menos que o escolhido nos próprios folds.
+        ordem_c = np.argsort(mediana)
+        grupo, familias = [], []
+        for c in ordem_c:
+            if mediana[c] > mediana.min() * 1.10 or len(grupo) == 3:
+                break
+            fam = "hard" if nomes[c][0] in ("quente", "frio") else nomes[c][0]
+            if fam not in familias:
+                grupo.append(int(c))
+                familias.append(fam)
+        if len(grupo) >= 2:
+            pesos = np.array([1.0 / (mediana[c] + 1e-12) for c in grupo])
+            pesos = pesos / pesos.sum()
+            mistura = [sum(pesos[i] * previsoes[c][f] for i, c in enumerate(grupo)) for f in range(usar)]
+            if np.median(erros_de(mistura)) < mediana[escolhido]:
+                return sum(pesos[i] * reconstruir(nomes[c], msk) for i, c in enumerate(grupo))
+        return reconstruir(nomes[escolhido], msk)
 
     # ---------------------------------------------------------------- 6. protecoes
-    # Qualquer erro ou valor inválido cai no modelo de médias. No fim, os valores
-    # visíveis voltam exatamente como vieram.
     try:
         saida = np.array(algoritmo(), dtype=float)
         if saida.shape != obs.shape or not np.isfinite(saida).all():
