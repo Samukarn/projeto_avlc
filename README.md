@@ -29,6 +29,7 @@ O primeiro mostra o NRMSE da solução atual no banco público (hoje 0,275). O s
 | `md/PLANO.md` | Objetivo, regra de aceitação, estratégia, roteiro, papéis |
 | `md/ARQUITETURA.md` | Como o `solucao.py` está organizado e como acrescentar uma ideia |
 | `md/EVOLUCAO.md` | Diário da equipe, base da apresentação |
+| `md/PESQUISA.md` | Pesquisa de métodos (James-Stein, Gavish-Donoho, PCA regularizada, KNN, LLS) com fontes e testes |
 | `md/RELATORIO.md` | Rascunho do relatório de entrega |
 | `experimentos/` | Ideias testadas que não funcionaram, com os números |
 
