@@ -2,17 +2,18 @@ import numpy as np
 
 
 def principal(observada, mascara):
-    # Versão 2: SVD iterativo de rank k, com k escolhido por validação interna.
+    # Versão 3: SVD iterativo (k automático) com ponto de partida robusto.
     obs = np.array(observada, dtype=float)
     msk = np.array(mascara, dtype=bool)
     n_lin, n_col = obs.shape
 
     def preencher_media(m):
-        # Ponto de partida: média da linha + média da coluna - média geral.
+        # Ponto de partida: média da coluna + desvio médio da linha em relação a essas médias.
         geral = obs[m].mean() if m.any() else 0.0
         med_col = np.array([obs[m[:, j], j].mean() if m[:, j].any() else geral for j in range(n_col)])
-        med_lin = np.array([obs[i, m[i]].mean() if m[i].any() else geral for i in range(n_lin)])
-        chute = med_lin[:, None] + med_col[None, :] - geral
+        resid = obs - med_col[None, :]
+        desvio_lin = np.array([resid[i, m[i]].mean() if m[i].any() else 0.0 for i in range(n_lin)])
+        chute = med_col[None, :] + desvio_lin[:, None]
         return np.where(m, obs, chute)
 
     def svd_iterativo(m, k, iteracoes=100):
@@ -45,3 +46,4 @@ def principal(observada, mascara):
     if not np.isfinite(saida).all():
         saida = preencher_media(msk)
     return saida
+
