@@ -11,5 +11,6 @@ NRMSE médio (menor é melhor). Gerado por `python3 testar.py --tudo`; não edit
 | v5_candidatos | 0.272 | 0.497 | 0.460 |
 | v6_pesquisa | 0.254 | 0.490 | 0.450 |
 | v7_ajuste_40 | 0.254 | 0.490 | 0.450 |
+| v8_avaliador_docker | 0.254 | 0.490 | 0.450 |
 
 Dados: 10 matrizes do banco público. Sintéticos: 50 matrizes de `gerar_sinteticas.py`. Os dois juntos: média de todas as matrizes.

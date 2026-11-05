@@ -10,9 +10,9 @@ Uso:
 Cada execução grava os resultados em resultados.csv (versão, conjunto, matriz,
 NRMSE, tempo, data), substituindo as linhas antigas da mesma versão e conjunto.
 
-O NRMSE aqui é RMSE nas posições ocultas / desvio padrão dos valores ocultos do
-gabarito. O avaliador oficial pode normalizar de forma um pouco diferente; use-o
-como referência final.
+O NRMSE segue a fórmula do avaliador atualizado (utils/normalizacao.py da imagem
+de 04/11): RMSE nas posições ocultas / desvio padrão dos valores ocultos, com o
+denominador nunca abaixo de 5% da amplitude do gabarito, e o resultado limitado a 10.
 """
 import csv
 import datetime
@@ -42,6 +42,13 @@ def matrizes(pasta):
         yield i, obs, msk, gab
 
 
+def nrmse_avaliador(rmse, ocultos, gabarito):
+    # Mesma conta do avaliador: piso de 5% da amplitude no denominador e teto de 10.
+    amplitude = float(gabarito.max() - gabarito.min())
+    denominador = max(float(ocultos.std()), 0.05 * amplitude, 1e-6, 1e-3)
+    return min(rmse / denominador, 10.0)
+
+
 def rodar(arquivo, pasta):
     principal = carregar(arquivo)
     linhas = []
@@ -53,7 +60,7 @@ def rodar(arquivo, pasta):
         assert np.isfinite(out).all(), f"matriz {i}: NaN/Inf na saída"
         oculto = ~msk
         rmse = np.sqrt(np.mean((out[oculto] - gab[oculto]) ** 2))
-        linhas.append((i, obs.shape, rmse / gab[oculto].std(), dt))
+        linhas.append((i, obs.shape, nrmse_avaliador(rmse, gab[oculto], gab), dt))
     return linhas
 
 

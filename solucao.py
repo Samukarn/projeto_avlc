@@ -33,7 +33,7 @@ def principal(observada, mascara):
         # Puxar todas para a média geral reduz o erro total (com 3 ou mais colunas).
         # Encolhe pelo fator B = 1 - (c - 3)·v / Σ(média_j - média geral)², onde v é a
         # variância de cada média. O mesmo vale para o desvio de cada linha.
-        med_col, _ = medias(m)
+        med_col, desvio_lin = medias(m)
         resid = obs - med_col[None, :]
         s2 = np.mean(resid[m] ** 2)
         n_por_col = np.maximum(m.sum(axis=0), 1)
@@ -72,13 +72,31 @@ def principal(observada, mascara):
             orcamento = 600000
         svds = [0]
 
+        def decompor(x):
+            # Mesmos vetores e valores singulares da SVD, mas pela matriz de Gram
+            # (autovalores de X·Xᵀ no lado menor). Sai ~2x mais rápido que np.linalg.svd
+            # nas matrizes do torneio, o que importa quando o avaliador roda emulado.
+            transposta = x.shape[0] > x.shape[1]
+            a = x.T if transposta else x
+            autoval, vetores = np.linalg.eigh(a @ a.T)
+            s = np.sqrt(np.maximum(autoval[::-1], 0.0))
+            return a, vetores[:, ::-1], s, transposta
+
+        def recompor(a, vetores, s, novos, transposta):
+            # Monta a matriz com os mesmos vetores singulares e os valores 'novos'.
+            r = len(novos)
+            fator = np.where(s[:r] > 1e-12 * (s[0] + 1e-300), novos / np.maximum(s[:r], 1e-300), 0.0)
+            v = vetores[:, :r]
+            saida = v @ (fator[:, None] * (v.T @ a))
+            return saida.T if transposta else saida
+
         def hard_impute(m, k, inicio, iteracoes=100):
             # SVD truncada no rank k e recoloca os conhecidos, até estabilizar.
             x = inicio
-            for _ in range(iteracoes):
-                svds[0] += 1
-                u, s, vt = np.linalg.svd(x, full_matrices=False)
-                aprox = np.clip((u[:, :k] * s[:k]) @ vt[:k], piso, teto)
+            for repeticao in range(iteracoes):
+                svds[0] = svds[0] + 1  # o avaliador não aceita += em item de lista
+                a, vetores, s, tr = decompor(x)
+                aprox = np.clip(recompor(a, vetores, s, s[:k], tr), piso, teto)
                 novo = np.where(m, obs, aprox)
                 mudanca = np.linalg.norm(novo - x)
                 x = novo
@@ -91,18 +109,18 @@ def principal(observada, mascara):
             # valores singulares, subtrai λ de todos (σ -> max(σ - λ, 0)). O ruído some e a
             # estrutura encolhe um pouco. Trabalha com a matriz centrada pelas médias da
             # coluna e percorre λ do maior para o menor, cada um partindo do anterior.
-            med_col, _ = medias(m)
+            med_col, desvio_lin = medias(m)
             centro = np.where(m, obs - med_col[None, :], 0.0)
             sigma1 = np.linalg.svd(centro, compute_uv=False)[0]
             z = np.zeros_like(obs)
             saida = []
             for fr in fracoes:
                 lam = fr * sigma1
-                for _ in range(iter_soft):
-                    svds[0] += 1
+                for repeticao in range(iter_soft):
+                    svds[0] = svds[0] + 1  # o avaliador não aceita += em item de lista
                     preenchida = np.where(m, obs - med_col[None, :], z)
-                    u, s, vt = np.linalg.svd(preenchida, full_matrices=False)
-                    novo = (u * np.maximum(s - lam, 0.0)) @ vt
+                    a, vetores, s, tr = decompor(preenchida)
+                    novo = recompor(a, vetores, s, np.maximum(s - lam, 0.0), tr)
                     mudanca = np.linalg.norm(novo - z)
                     z = novo
                     if mudanca < 1e-4 * (np.linalg.norm(z) + 1e-12):
@@ -120,13 +138,13 @@ def principal(observada, mascara):
             if gl <= 0:
                 return None
             x = inicio
-            for _ in range(iteracoes):
-                svds[0] += 1
+            for repeticao in range(iteracoes):
+                svds[0] = svds[0] + 1  # o avaliador não aceita += em item de lista
                 centro = x.mean(axis=0)
-                u, s, vt = np.linalg.svd(x - centro, full_matrices=False)
+                a, vetores, s, tr = decompor(x - centro)
                 sigma2 = np.sum(s[k:] ** 2) / gl
                 encolhido = np.maximum(s[:k] - sigma2 / np.maximum(s[:k], 1e-12), 0.0)
-                aprox = np.clip(centro + (u[:, :k] * encolhido) @ vt[:k], piso, teto)
+                aprox = np.clip(centro + recompor(a, vetores, s, encolhido, tr), piso, teto)
                 novo = np.where(m, obs, aprox)
                 mudanca = np.linalg.norm(novo - x)
                 x = novo
@@ -230,7 +248,9 @@ def principal(observada, mascara):
             listas = [passo_rank(fd["treino"], k, fd["inicio"], fd["estado"]) for fd in folds]
             # Só entram candidatos que existem em todos os folds (a PCA regularizada pode
             # não caber nos graus de liberdade de algum fold).
-            nomes_comuns = [nome for nome, _ in listas[0] if all(nome in [n for n, _ in l] for l in listas)]
+            # (sem all(): essa função não existe no ambiente do avaliador)
+            nomes_comuns = [nome for nome, cand in listas[0]
+                            if min([len([1 for n, c in l if n == nome]) for l in listas]) > 0]
             avaliar([[par for par in l if par[0] in nomes_comuns] for l in listas])
             if len(previsoes) == antes:
                 break

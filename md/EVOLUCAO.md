@@ -31,6 +31,7 @@ A nota é o NRMSE (erro normalizado). Quanto menor, melhor:
 | v5 | Vários candidatos + combinação | 0,272 | `versoes/v5_candidatos.py` |
 | v6 | James-Stein + PCA regularizada (da pesquisa) | 0,254 | `versoes/v6_pesquisa.py` |
 | v7 | v6 com tempo seguro para matrizes até 40×40 | 0,254 | `versoes/v7_ajuste_40.py` |
+| v8 | v7 aceita pelo avaliador oficial e 1,6× mais rápida | 0,254 (no Docker) | `versoes/v8_avaliador_docker.py` |
 
 Resultado por matriz:
 
@@ -259,7 +260,37 @@ O que aprendemos:
 - A trava de tempo depende de uma estimativa medida numa máquina. Vale medir de novo quando mudar o tamanho das matrizes ou o computador.
 - As sintéticas agora vão até 40×40, como o lote oficial. Por isso os números das sintéticas e do misturado mudaram para todas as versões e não são comparáveis com os de antes.
 
-Pendente: o novo NRMSE do avaliador. O monitor mudou a normalização, mas sem o Docker funcionando não dá para saber como. O nosso `testar.py` divide o RMSE pelo desvio padrão dos valores ocultos.
+Pendente na época: o novo NRMSE do avaliador. Resolvido na v8.
+
+## v8 — Primeira versão aceita pelo avaliador oficial
+
+Motivo: com o Rosetta ligado de novo, o Docker funcionou em 05/11. Antes de rodar, tiramos o código do avaliador de dentro da imagem e lemos as regras do sandbox e a nova normalização.
+
+Problemas encontrados:
+- `svds[0] += 1` é proibido no RestrictedPython ("Augmented assignment of object items and slices is not allowed"). O avaliador recusa o arquivo inteiro antes de rodar. Isso estava nas versões v4 a v7. Conferimos no container: a v6 é recusada.
+- `all(...)` não existe no ambiente do avaliador. Ia dar NameError, o `try/except` ia trocar a resposta pelo modelo de médias e a nota cairia muito sem nenhum aviso.
+- No Docker do Mac (emulado pelo Rosetta), tudo roda cerca de 3,3 vezes mais devagar. A matriz 10 levou 2,05 s e reprovou por tempo.
+
+O que mudou:
+- `svds[0] = svds[0] + 1`, `all` trocado por uma conta com `min`, e nada de variável `_`. A saída ficou idêntica nas 60 matrizes.
+- A SVD foi trocada pela decomposição da matriz de Gram (autovalores de X·Xᵀ). Dá os mesmos vetores e valores singulares e é cerca de 2 vezes mais rápida no Docker. A nota continua igual até a quarta casa.
+- O `testar.py` agora usa a mesma fórmula do avaliador.
+- O `checar_regras.py` agora pega `+=` em item de lista, nomes com `_` e funções embutidas que não existem no avaliador.
+
+A nova normalização (lida em `utils/normalizacao.py` da imagem): RMSE dividido pelo desvio padrão dos valores ocultos, como já fazíamos, mas com o denominador nunca abaixo de 5% da amplitude do gabarito e a nota de cada matriz limitada a 10. No banco público nada muda.
+
+Resultado no avaliador oficial (Docker, 05/11): status Sucesso nas 10 matrizes, NRMSE 0,254457, igual ao `testar.py` matriz por matriz. Tempo total de 5,1 s (limite de 25 s).
+
+| Tempo no Docker (Rosetta) | v7 | v8 |
+|---|:---:|:---:|
+| Matriz 10 (28×31) | 2,05 s (reprovada) | 1,31 s |
+| Pior caso entre 29×31 e 30×30 | não medido | 1,34 s |
+| 40×40 | não medido | 0,90 s |
+
+O que aprendemos:
+- Passar nos nossos testes não basta: só o avaliador de verdade mostrou que o código seria recusado.
+- Ler o código do avaliador foi mais rápido e mais confiável do que adivinhar as regras.
+- Cortar o orçamento de tempo custava nota (o público ia de 0,254 para 0,272). Deixar cada conta mais rápida deu a folga sem perder nada.
 
 ---
 

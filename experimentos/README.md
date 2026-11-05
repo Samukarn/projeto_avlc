@@ -49,3 +49,14 @@ Teste com 40 matrizes de 30×30 a 40×40 (rank, rank com ruído e ruído puro), 
 O que entrou na v7: custo recalibrado e orçamento de 600 mil só acima de 900 células; abaixo disso, igual à v6.
 
 Os números "sintético" da v4 vieram de um gerador anterior (60 matrizes, até 31×31). O gerador atual é o `gerar_sinteticas.py`.
+
+## v8 — tempo no Docker emulado
+
+| Tentativa | Público | Sintéticas | Pior tempo (Mac nativo) | Decisão |
+|---|:---:|:---:|:---:|---|
+| v7 sem mudança | 0,2545 | 0,4896 | 0,61 s (Docker: 2,05 s) | reprovou por tempo no Docker |
+| Orçamento × 0,5 | 0,2722 | 0,4962 | 0,36 s | descartada, perde nota |
+| Orçamento × 0,33 | 0,2925 | 0,5037 | 0,34 s | descartada |
+| Orçamento × 0,25 | 0,3070 | 0,5079 | 0,22 s | descartada |
+| SVDs empilhadas (5 folds numa chamada) | — | — | só 8% mais rápida | descartada |
+| Decomposição pela matriz de Gram | 0,2545 | 0,4896 | 0,47 s (Docker: 1,31 s) | adotada |

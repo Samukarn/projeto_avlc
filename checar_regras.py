@@ -4,6 +4,8 @@ Uso: python3 checar_regras.py solucao.py
 
 1. Análise estática: class, seed/default_rng/RandomState/Random, imports
    proibidos e funções definidas fora de principal.
+   Também as regras do sandbox do avaliador: sem += em item de lista, sem nomes
+   com "_" e só funções embutidas que existem lá (all, any, next etc. não existem).
 2. Casos extremos: linha/coluna inteira oculta, 1xn, nx1, tudo visível,
    60x60, valores muito grandes.
 3. Em cada caso: forma, NaN/Inf, valores visíveis preservados e tempo
@@ -59,6 +61,32 @@ funcoes_topo = [n.name for n in arvore.body if isinstance(n, (ast.FunctionDef, a
 resultado("existe principal(observada, mascara)", "principal" in funcoes_topo)
 fora = [f for f in funcoes_topo if f != "principal"]
 resultado("nenhuma função fora de principal", not fora, str(fora) if fora else "")
+
+# Regras do sandbox do avaliador (RestrictedPython 8.5, lidas de utils/sandbox_restrito.py).
+# O código é recusado inteiro se usar += em item de lista/atributo ou nomes com "_".
+aug = [n.lineno for n in ast.walk(arvore) if isinstance(n, ast.AugAssign) and not isinstance(n.target, ast.Name)]
+resultado("sem += / -= em item de lista ou atributo (ex.: x[0] += 1)", not aug, f"linhas {aug}" if aug else "")
+sublinhado = sorted({n.lineno for n in ast.walk(arvore)
+                     if (isinstance(n, ast.Name) and n.id.startswith("_"))
+                     or (isinstance(n, ast.Attribute) and n.attr.startswith("_"))
+                     or (isinstance(n, ast.arg) and n.arg.startswith("_"))})
+resultado("nenhum nome ou atributo começando com _", not sublinhado, f"linhas {sublinhado}" if sublinhado else "")
+# Funções embutidas que existem no avaliador; qualquer outra vira NameError lá dentro
+# (e o try/except trocaria a resposta pelo modelo de médias sem avisar).
+EMBUTIDAS = {"None", "False", "True", "abs", "bool", "bytes", "callable", "chr", "complex", "divmod",
+             "float", "hash", "hex", "id", "int", "isinstance", "issubclass", "len", "oct", "ord",
+             "pow", "range", "repr", "round", "slice", "sorted", "str", "tuple", "zip", "enumerate",
+             "map", "min", "max", "sum", "list", "dict", "set", "print", "Exception", "ValueError",
+             "ArithmeticError", "ZeroDivisionError", "IndexError", "KeyError", "TypeError"}
+import builtins
+definidos = {n.id for n in ast.walk(arvore) if isinstance(n, ast.Name) and not isinstance(n.ctx, ast.Load)}
+definidos |= {n.arg for n in ast.walk(arvore) if isinstance(n, ast.arg)}
+definidos |= {n.name for n in ast.walk(arvore) if isinstance(n, ast.FunctionDef)}
+definidos |= {(a.asname or a.name).split(".")[0] for n in ast.walk(arvore) if isinstance(n, (ast.Import, ast.ImportFrom)) for a in n.names}
+faltando = sorted({(n.id, n.lineno) for n in ast.walk(arvore)
+                   if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id not in definidos
+                   and hasattr(builtins, n.id) and n.id not in EMBUTIDAS})
+resultado("só funções embutidas disponíveis no avaliador", not faltando, str(faltando) if faltando else "")
 
 outros = [type(n).__name__ for n in arvore.body
           if not isinstance(n, (ast.Import, ast.ImportFrom, ast.FunctionDef))
