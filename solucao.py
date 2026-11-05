@@ -2,8 +2,9 @@ import numpy as np
 
 
 def principal(observada, mascara):
-    # Versão 6: vários candidatos (médias com α, James-Stein, Soft-Impute, Hard-Impute,
-    # PCA regularizada) escolhidos ou combinados por validação cruzada.
+    # Versão 7: v6 com orçamento de tempo recalibrado para matrizes até 40x40.
+    # Candidatos (médias com α, James-Stein, Soft-Impute, Hard-Impute, PCA
+    # regularizada) escolhidos ou combinados por validação cruzada.
     # Etapas (ver md/ARQUITETURA.md):
     # preparar -> modelo_medias -> candidatos -> validacao_cruzada -> escolher_ou_combinar -> protecoes
 
@@ -60,7 +61,15 @@ def principal(observada, mascara):
         piso, teto = obs[msk].min() - 0.5 * faixa, obs[msk].max() + 0.5 * faixa
 
         # Custo aproximado de uma SVD em microssegundos, para o orçamento de tempo.
-        custo_svd = 15 + 0.001 * n_lin * n_col * min(n_lin, n_col)
+        # Acima de 900 células (maiores que as públicas; o lote oficial vai até 40x40)
+        # a estimativa é mais conservadora: medimos ~3x mais que a fórmula simples.
+        # O orçamento também sobe, para compensar a estimativa maior sem perder qualidade.
+        if n_lin * n_col <= 900:
+            custo_svd = 15 + 0.001 * n_lin * n_col * min(n_lin, n_col)
+            orcamento = 300000
+        else:
+            custo_svd = 30 + 0.003 * n_lin * n_col * min(n_lin, n_col)
+            orcamento = 600000
         svds = [0]
 
         def hard_impute(m, k, inicio, iteracoes=100):
@@ -233,7 +242,7 @@ def principal(observada, mascara):
                 sem_melhora += 1
                 if sem_melhora >= 6:
                     break
-            if svds[0] * custo_svd > 300000:
+            if svds[0] * custo_svd > orcamento:
                 break
 
         # ------------------------------------------------------------ 5. escolher_ou_combinar

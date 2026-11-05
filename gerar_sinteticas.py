@@ -15,7 +15,7 @@ gerador = np.random.default_rng(2026)  # semente fixa: todos da equipe geram as 
 
 
 def tamanho():
-    return gerador.integers(5, 61, size=2)
+    return gerador.integers(5, 41, size=2)  # o lote oficial vai até 40x40 (aviso do monitor, 03/11)
 
 
 def rank_baixo(n, m, rank, ruido):

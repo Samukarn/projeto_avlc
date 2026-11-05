@@ -30,6 +30,7 @@ A nota é o NRMSE (erro normalizado). Quanto menor, melhor:
 | v4 | Validação cruzada robusta | 0,275 | `versoes/v4_validacao_cruzada.py` |
 | v5 | Vários candidatos + combinação | 0,272 | `versoes/v5_candidatos.py` |
 | v6 | James-Stein + PCA regularizada (da pesquisa) | 0,254 | `versoes/v6_pesquisa.py` |
+| v7 | v6 com tempo seguro para matrizes até 40×40 | 0,254 | `versoes/v7_ajuste_40.py` |
 
 Resultado por matriz:
 
@@ -231,6 +232,34 @@ O que aprendemos:
 - Pesquisar a literatura rendeu mais que ajustar parâmetros: os dois métodos novos têm fundamento teórico e ganharam onde eram previstos.
 - A matriz 8 chegou a 0,994, abaixo de 1. Isso equivale a acertar melhor que a média dos ocultos, o que só é possível porque o encolhimento usa a média geral, que tem menos ruído que a média de cada coluna.
 - Cada método novo precisa de uma trava de tempo: a PCA regularizada sozinha levava uma 300×300 a 2,4 s.
+
+---
+
+## v7 — Tempo seguro para matrizes até 40×40
+
+Motivo: em 03/11 o monitor avisou no Discord que a imagem do avaliador foi atualizada, e o lote oficial passa a ter matrizes de ordem até 40 (antes, 32). Também houve um ajuste na normalização do erro.
+
+Problema encontrado: a trava de tempo da v6 conta as SVDs e multiplica por uma estimativa de custo. Acima de 900 células, essa estimativa ficava cerca de 3 vezes abaixo do custo real, então a trava deixava rodar demais. Nas sintéticas limitadas a 40×40, uma matriz levou 2,18 s, acima do limite de 2 s, o que desclassificaria a equipe.
+
+Ideia: acima de 900 células, usar uma estimativa recalibrada (30 + 0,003·n·m·min(n, m), medida de 6×9 até 100×100) e um orçamento maior (600 mil em vez de 300 mil), para não perder qualidade. Até 900 células, que é onde estão todas as matrizes públicas, nada muda.
+
+Resultado:
+
+| Conjunto | v6 | v7 |
+|---|:---:|:---:|
+| Lote inicial (público) | 0,2545 | 0,2545 (saída idêntica) |
+| Sintéticas até 40×40 | 0,4896 | 0,4896 |
+| Misturado | 0,4504 | 0,4504 |
+| Pior tempo por matriz | 2,18 s | 1,36 s |
+
+Os tempos foram medidos com o computador ocupado (carga média 3); numa máquina livre devem ficar perto da metade.
+
+O que aprendemos:
+- Uma versão pode ser "igual" na nota e ainda assim muito melhor, se evita uma desclassificação.
+- A trava de tempo depende de uma estimativa medida numa máquina. Vale medir de novo quando mudar o tamanho das matrizes ou o computador.
+- As sintéticas agora vão até 40×40, como o lote oficial. Por isso os números das sintéticas e do misturado mudaram para todas as versões e não são comparáveis com os de antes.
+
+Pendente: o novo NRMSE do avaliador. O monitor mudou a normalização, mas sem o Docker funcionando não dá para saber como. O nosso `testar.py` divide o RMSE pelo desvio padrão dos valores ocultos.
 
 ---
 

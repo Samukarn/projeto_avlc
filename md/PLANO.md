@@ -44,7 +44,8 @@ Ver [ARQUITETURA.md](ARQUITETURA.md). Resumo: uma ideia nova vira só "mais um c
 | v4 | Validação cruzada com vários folds, mediana, regra do mais simples | Feita: 0,275, estável entre 0,274 e 0,278 |
 | v5 | Candidatos Soft-Impute e médias com α ∈ {0; 0,5; 1}, combinação ponderada por 1/erro (o que era a v6). ALS testado e retirado | Feita: 0,272 público, 0,382 misturado |
 | v6 | James-Stein e PCA regularizada (vindos da pesquisa em md/PESQUISA.md), travas de tempo para matrizes grandes | Feita: 0,254 público, 0,370 misturado |
-| v7 | Conferência no Docker, ajuste fino, candidatos de simetria/vizinhança | Próxima |
+| v7 | Trava de tempo recalibrada para matrizes até 40×40 (aviso do monitor) | Feita: 0,254 público, pior tempo 2,18 s → 1,36 s |
+| v8 | Conferência no Docker, nova normalização do erro, candidatos de simetria/vizinhança | Próxima |
 
 Datas:
 - 10/11 e 12/11: aulas de acompanhamento. Levar as perguntas em aberto.
@@ -68,4 +69,5 @@ Todos precisam entender o algoritmo inteiro. Na Etapa 2, os monitores fazem perg
 |---|---|---|
 | O NRMSE final é a média dos NRMSE por matriz ou um RMSE agregado de todas? | | |
 | O desvio padrão é o dos valores ocultos ou o da matriz inteira? | | |
-| Existe tamanho máximo para as matrizes do lote privado? | | |
+| Existe tamanho máximo para as matrizes do lote privado? | | Sim: ordem até 40 (monitor no Discord, 03/11) |
+| Como ficou a nova normalização do erro (monitor, 03/11)? | | |

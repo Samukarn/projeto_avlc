@@ -34,6 +34,7 @@ Recebemos matrizes numéricas em que parte das células está oculta. A função
 | v4 | Validação cruzada com vários folds e mediana | 0,275 (estável entre 0,274 e 0,278) |
 | v5 | Médias com α, Soft-Impute e combinação | 0,272 (0,382 juntando com as sintéticas) |
 | v6 | James-Stein e PCA regularizada | 0,254 (0,370 juntando com as sintéticas) |
+| v7 | Trava de tempo recalibrada para matrizes até 40×40 | 0,254 (mesma saída; pior tempo de 2,18 s para 1,36 s) |
 
 Na v3, o 0,275 dependia de qual grupo era escondido: com outros grupos, o resultado ia até 0,365. A v4 chega ao mesmo número com qualquer sorteio.
 
