@@ -252,7 +252,7 @@ Resultado:
 | Misturado | 0,4504 | 0,4504 |
 | Pior tempo por matriz | 2,18 s | 1,36 s |
 
-Os tempos foram medidos com o computador ocupado (carga média 3); numa máquina livre devem ficar perto da metade.
+Os tempos da tabela foram medidos com o computador ocupado (carga média 3). Numa rodada posterior, com a máquina mais livre, a v6 teve pior tempo de 0,77 s e a v7 de 0,82 s: as duas ficam bem abaixo do limite em condições normais. A v7 é uma proteção para o caso de o avaliador oficial rodar numa máquina lenta ou ocupada, onde a v6 chegou a passar de 2 s.
 
 O que aprendemos:
 - Uma versão pode ser "igual" na nota e ainda assim muito melhor, se evita uma desclassificação.
